@@ -2,31 +2,44 @@ const lockfile = require('@yarnpkg/lockfile');
 const fs = require("fs");
 
 const parseYarnLock = async (fileContents) => {
+
+  const canBeUpgraded = (packageName) => {
+    return packageName.split("@")[1].indexOf("^") == 0 ? "Yes" : "No";
+  };
+  
   const packages = lockfile.parse(fileContents);
 
   const dependencies = new Map;
 
-    for (const [key, value] of Object.entries(packages.object)) {
-        const name = key.substring(0, key.indexOf("@", 1));
-        const source = `${name}@${value.version}`;
+  for (const [key, value] of Object.entries(packages.object)) {
+    const name = key.substring(0, key.indexOf("@", 1));
+    const source = `${name}@${value.version}`;
+    const packageDependencies = Object.entries({...value.optionalDependencies, ...value.dependencies});
 
-        for (const [depkey, depvalue] of Object.entries({...value.optionalDependencies, ...value.dependencies})) {
-            const depTargetKey = `${depkey}@${depvalue}`;
-            const depTargetObject = packages.object[depTargetKey];
-            const depTarget = depTargetObject ? `${depkey}@${depTargetObject.version}` : depTargetKey;
+    if(packageDependencies.length === 0) {
+      const usageMap = dependencies.get(source) || {};
+      usageMap.canBeUpgraded = canBeUpgraded(key);
+      usageMap.resolved = value.resolved;
+      usageMap.usedBy = usageMap.usedBy || new Set;
+      dependencies.set( source, usageMap );
+    } else {
+      for (const [depkey, depvalue] of packageDependencies ) {
+          const depTargetKey = `${depkey}@${depvalue}`;
+          const depTargetObject = packages.object[depTargetKey];
+          const depTarget = depTargetObject ? `${depkey}@${depTargetObject.version}` : depTargetKey;
 
-            const usageMap = dependencies.get(depTarget) || {};
-            const targetVersionDescriptor = depTargetKey.split("@")[1];
+          const usageMap = dependencies.get(depTarget) || {};
 
-            usageMap.canBeUpgraded = targetVersionDescriptor.indexOf("^") == 0 ? "Yes" : "No";
-            usageMap.resolved = depTargetObject ? depTargetObject.resolved || "" : "";
-            usageMap.usedBy = usageMap.usedBy || new Set;
-            usageMap.usedBy.add(source);
+          usageMap.canBeUpgraded = canBeUpgraded(depTargetKey);
+          usageMap.resolved = depTargetObject ? depTargetObject.resolved || "" : "";
+          usageMap.usedBy = usageMap.usedBy || new Set;
+          usageMap.usedBy.add(source);
 
-            dependencies.set( depTarget, usageMap )
-        }
+          dependencies.set( depTarget, usageMap )
       }
-
+    }
+  }
+  
   const sortedDependencies =  new Map([...dependencies].sort((a, b) => String(a[0]).localeCompare(b[0])));
   const sortedDependenciesArray = [];
   for (const [key, value] of sortedDependencies) { 
