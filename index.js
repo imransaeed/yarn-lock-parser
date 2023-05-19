@@ -66,6 +66,7 @@ const parseYarnLock = async (fileContents) => {
 
 const main = async () => {
   const filePath = process.argv[2];
+  const outputFilePath = process.argv[3] || `${filePath}.csv`;
   const fileContents = fs.readFileSync(filePath, "utf8");
   const result = await parseYarnLock(fileContents);
   const csvHeader = "Package, Resolved Url, Can be Upgraded?, Used By...";
@@ -80,8 +81,8 @@ const main = async () => {
           },${[...x.usageMap.usedBy].join(",")}`
       )
       .join("\n");
-  const csvFileName = `${filePath}.csv`;
-  fs.writeFileSync(csvFileName, csv);
+
+  fs.writeFileSync(outputFilePath, csv);
 };
 
 main();
