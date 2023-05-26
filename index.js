@@ -3,7 +3,9 @@ const fs = require("fs");
 
 const parseYarnLock = async (fileContents) => {
   const canBeUpgraded = (packageName) => {
-    return packageName.split("@")[1].indexOf("^") == 0 ? "Yes" : "No";
+    return packageName.substring(1).split("@")[1].indexOf("^") == 0
+      ? "Yes"
+      : "No";
   };
 
   const packages = lockfile.parse(fileContents);
